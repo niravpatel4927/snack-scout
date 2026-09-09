@@ -85,8 +85,11 @@ def notify_discord(findings):
     requests.post(DISCORD_WEBHOOK_URL, json={"content": "\n\n".join(lines)})
 
 def get_feedback_summary(conn):
-    liked = conn.execute("SELECT name FROM findings WHERE feedback='up'").fetchall()
-    disliked = conn.execute("SELECT name FROM findings WHERE feedback='down'").fetchall()
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM findings WHERE feedback='up'")
+    liked = cur.fetchall()
+    cur.execute("SELECT name FROM findings WHERE feedback='down'")
+    disliked = cur.fetchall()
     liked_str = ", ".join(n for (n,) in liked) or "none yet"
     disliked_str = ", ".join(n for (n,) in disliked) or "none yet"
     return f"User has previously liked: {liked_str}. User has previously disliked: {disliked_str}."
@@ -97,7 +100,9 @@ def run():
     try:
         feedback_context = get_feedback_summary(conn)
         findings = gather_and_structure_findings(feedback_context)
-        before = set(row[0] for row in conn.execute("SELECT name FROM findings").fetchall())
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM findings")
+        before = set(row[0] for row in cur.fetchall())
         new_count = save_findings(conn, findings)
         new_ones = [f for f in findings if f.name not in before]
         print(f"Found {new_count} new items.")
