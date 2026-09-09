@@ -23,7 +23,7 @@ def gather_and_structure_findings():
                     "type": "object",
                     "properties": {
                         "name": {"type": "string"},
-                        "category": {"type": "string", "enum": ["snack, dessert", "restaurant"]},
+                        "category": {"type": "string", "enum": ["snack", "dessert", "restaurant"]},
                         "source_url": {"type": "string"},
                         "why_it_matches_you": {"type": "string"},
                     },
