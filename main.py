@@ -9,7 +9,7 @@ load_dotenv()
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
-def gather_and_structure_findings():
+def gather_and_structure_findings(feedback_context: str):
 
     report_tool = {
     "name": "report_findings",
@@ -56,10 +56,14 @@ def gather_and_structure_findings():
         max_tokens = 2048,
         tools = [report_tool],
         tool_choice = {"type": "tool", "name": "report_findings"}, #force exact tool
-        messages = [{
-            "role": "user", 
-            "content": f"Convert the following findings into structured form using report_findings:\n\n{gather_text}",}
-        ],
+               messages=[{
+            "role": "user",
+            "content": (
+                "Search for 3-5 new limited-time snack/dessert releases in the US this week. "
+                "List what you find with names, sources, and brief descriptions.\n\n"
+                f"For context on preferences: {feedback_context}"
+            ),
+        }],
     )
 
     tool_call = next(b for b in structured_response.content if b.type == "tool_use" and b.name == "report_findings")
@@ -80,15 +84,23 @@ def notify_discord(findings):
     lines = [f"**{f.name}** ({f.category}) - {f.why_it_matches_you}\n{f.source_url}" for f in findings]
     requests.post(DISCORD_WEBHOOK_URL, json={"content": "\n\n".join(lines)})
 
+def get_feedback_summary(conn):
+    liked = conn.execute("SELECT name FROM findings WHERE feedback='up'").fetchall()
+    disliked = conn.execute("SELECT name FROM findings WHERE feedback='down'").fetchall()
+    liked_str = ", ".join(n for (n,) in liked) or "none yet"
+    disliked_str = ", ".join(n for (n,) in disliked) or "none yet"
+    return f"User has previously liked: {liked_str}. User has previously disliked: {disliked_str}."
+
 
 def run():
     conn = init_db()
     try:
-        findings = gather_and_structure_findings()
+        feedback_context = get_feedback_summary(conn)
+        findings = gather_and_structure_findings(feedback_context)
         before = set(row[0] for row in conn.execute("SELECT name FROM findings").fetchall())
         new_count = save_findings(conn, findings)
         new_ones = [f for f in findings if f.name not in before]
-        print(f"Found {new_count} new findings this run.")
+        print(f"Found {new_count} new items.")
         notify_discord(new_ones)
     finally:
         conn.close()
