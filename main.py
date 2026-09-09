@@ -46,6 +46,10 @@ def gather_and_structure_findings():
         }]
     )
 
+    gather_text = "".join(b.text for b in gather_response.content if b.type == "text")
+    print("---- Gathered text ---")
+    print(gather_text) # check is there really content here
+    
     # Step 2: Structure findings
     structured_response = client.messages.create(
         model = "claude-sonnet-5",
